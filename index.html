@@ -2,8 +2,8 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>eSignon Signing Prototype - Mobile UX v52</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>eSignon Signing Prototype - Mobile UX v53</title>
   <style>
     html,body,#root{width:100%;height:100%;margin:0}
     body{overflow:hidden;background:#F2F4F6}
@@ -529,6 +529,62 @@ const formatPhone = (value = "") => {
     if (n.length <= 7)
         return `${n.slice(0, 3)}-${n.slice(3)}`;
     return `${n.slice(0, 3)}-${n.slice(3, 7)}-${n.slice(7)}`;
+};
+const getKeyboardProps = (field, enterKeyHint = "next") => {
+    const common = {
+        autoCorrect: "off",
+        spellCheck: false,
+        enterKeyHint,
+    };
+    if (!field)
+        return { ...common, type: "text", inputMode: "text", autoComplete: "off" };
+    if (field.id === "phone")
+        return {
+            ...common,
+            type: "tel",
+            inputMode: "tel",
+            autoComplete: "tel",
+            autoCapitalize: "none",
+        };
+    if (field.id === "email")
+        return {
+            ...common,
+            type: "email",
+            inputMode: "email",
+            autoComplete: "email",
+            autoCapitalize: "none",
+        };
+    if (field.id === "rrn")
+        return {
+            ...common,
+            type: "text",
+            inputMode: "numeric",
+            autoComplete: "bday",
+            autoCapitalize: "none",
+        };
+    if (field.id === "name")
+        return {
+            ...common,
+            type: "text",
+            inputMode: "text",
+            autoComplete: "name",
+            autoCapitalize: "words",
+        };
+    if (field.id === "address")
+        return {
+            ...common,
+            type: "text",
+            inputMode: "text",
+            autoComplete: "street-address",
+            autoCapitalize: "sentences",
+        };
+    return {
+        ...common,
+        type: field.type === "email" ? "email" : field.type === "tel" ? "tel" : "text",
+        inputMode: field.type === "email" ? "email" : field.type === "tel" ? "tel" : "text",
+        autoComplete: "off",
+        autoCapitalize: "sentences",
+    };
 };
 const isValidPhone = (value = "") => /^010-[0-9]{4}-[0-9]{4}$/.test(value);
 const isValidEmail = (value = "") => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
@@ -1478,7 +1534,7 @@ function PdfFrame({ field, left, top, width, height = 48, active, pulse, childre
         } }, children(state)));
 }
 function PdfInput({ field, left, top, width, height, active, pulse, onFocus, onHover, onLeave, }) {
-    return (React.createElement(PdfFrame, { field: field, left: left, top: top, width: width, height: height, active: active, pulse: pulse, onHover: onHover, onLeave: onLeave }, () => (React.createElement("input", { value: field.value || "", type: field.type === "tel" ? "tel" : field.type, inputMode: field.id === "phone" ? "numeric" : undefined, placeholder: "", onFocus: () => onFocus(field.id), onClick: (e) => {
+    return (React.createElement(PdfFrame, { field: field, left: left, top: top, width: width, height: height, active: active, pulse: pulse, onHover: onHover, onLeave: onLeave }, () => (React.createElement("input", { value: field.value || "", ...getKeyboardProps(field), placeholder: "", onFocus: () => onFocus(field.id), onClick: (e) => {
             e.stopPropagation();
             onFocus(field.id);
         }, onChange: (e) => field.setter(field.id === "phone"
@@ -2156,7 +2212,7 @@ function PanelField({ field, active, onFocus, onSign }) {
     };
     if (["text", "tel", "email"].includes(field.type)) {
         return (React.createElement(React.Fragment, null,
-            React.createElement("input", { type: field.type === "tel" ? "tel" : field.type, inputMode: field.id === "phone" ? "numeric" : undefined, value: field.value || "", placeholder: "", onFocus: () => onFocus(field.id), onMouseEnter: () => setHovered(true), onMouseLeave: () => setHovered(false), onChange: (e) => field.setter(field.id === "phone"
+            React.createElement("input", { ...getKeyboardProps(field), value: field.value || "", placeholder: "", onFocus: () => onFocus(field.id), onMouseEnter: () => setHovered(true), onMouseLeave: () => setHovered(false), onChange: (e) => field.setter(field.id === "phone"
                     ? formatPhone(e.target.value)
                     : e.target.value), style: base }),
             invalid && (React.createElement("p", { style: {
@@ -2734,7 +2790,8 @@ function Header({ isSaved, onSave, onHelp, onMessages, onAttachments, showMore, 
                 gap: 8,
                 padding: "0 12px",
                 flexShrink: 0,
-                zIndex: 50,
+                position: "relative",
+                zIndex: 120,
             } },
             React.createElement("div", { style: { flex: 1, minWidth: 0 } },
                 React.createElement("p", { style: {
@@ -3030,7 +3087,7 @@ function FieldSheet({ fields, activeId, onClose, onDocumentView, onSave, onSign,
                             size: "XL",
                             category: "DIRECT",
                             state: valid ? "focus" : "error",
-                        }), ref: inputRef, type: field.type === "tel" ? "tel" : field.type, inputMode: field.id === "phone" ? "numeric" : undefined, value: String(draft || ""), onChange: (e) => setDraft(field.id === "phone"
+                        }), ref: inputRef, ...getKeyboardProps(field, nextField ? "next" : "done"), value: String(draft || ""), onChange: (e) => setDraft(field.id === "phone"
                             ? formatPhone(e.target.value)
                             : e.target.value), placeholder: "", style: {
                             width: "100%",
@@ -3716,8 +3773,9 @@ function MobileMoreDialog({ onClose, onInfo, onMessages, onAttachments, onReject
             width: "100%",
             display: "flex",
             alignItems: "center",
-            gap: 14,
-            padding: "11px 20px",
+            gap: 16,
+            minHeight: 56,
+            padding: "0 20px",
             background: "none",
             border: "none",
             cursor: "pointer",
@@ -3726,7 +3784,8 @@ function MobileMoreDialog({ onClose, onInfo, onMessages, onAttachments, onReject
         React.createElement("span", { style: { width: 24, display: "flex", justifyContent: "center" } }, icon),
         React.createElement("span", { style: {
                 flex: 1,
-                fontSize: 15,
+                fontSize: 16,
+                lineHeight: 1.5,
                 fontWeight: 700,
                 color: danger ? EDS_COLOR.text.error : EDS_COLOR.text.primary,
             } }, label),
@@ -3745,15 +3804,18 @@ function MobileMoreDialog({ onClose, onInfo, onMessages, onAttachments, onReject
             } }, badge)),
         React.createElement(ChevronRight, { size: 15, color: EDS_PALETTE.Gray[300] })));
     return (React.createElement(BaseDialog, { isCompact: true, title: "\uB354\uBCF4\uAE30", onClose: onClose },
-        React.createElement("div", { style: { margin: "-12px -20px 0" } },
+        React.createElement("div", { style: {
+                margin: "4px -20px -8px",
+                padding: "8px 0 12px",
+            } },
             React.createElement(Row, { icon: React.createElement(MessageSquare, { size: 17, color: EDS_COLOR.text.secondary }), label: "\uBA54\uC2DC\uC9C0", onClick: onMessages, badge: 3 }),
             React.createElement(Row, { icon: React.createElement(Paperclip, { size: 17, color: EDS_COLOR.text.secondary }), label: "\uCCA8\uBD80\uD30C\uC77C", onClick: onAttachments, badge: 3 }),
             React.createElement(Row, { icon: React.createElement(Download, { size: 17, color: EDS_COLOR.text.secondary }), label: "\uBB38\uC11C \uB2E4\uC6B4\uB85C\uB4DC", onClick: () => { } }),
-            React.createElement("div", { style: { height: 1, background: EDS_COLOR.background.disabled, margin: "4px 16px" } }),
+            React.createElement("div", { style: { height: 1, background: EDS_COLOR.background.disabled, margin: "8px 20px" } }),
             React.createElement(Row, { icon: React.createElement(FileText, { size: 17, color: EDS_COLOR.text.secondary }), label: "\uBB38\uC11C \uC815\uBCF4", onClick: onInfo }),
-            React.createElement("div", { style: { height: 1, background: EDS_COLOR.background.disabled, margin: "4px 16px" } }),
+            React.createElement("div", { style: { height: 1, background: EDS_COLOR.background.disabled, margin: "8px 20px" } }),
             React.createElement(Row, { icon: React.createElement(AlertTriangle, { size: 17, color: EDS_COLOR.text.error }), label: "\uBB38\uC11C \uBC18\uB824\uD558\uAE30", onClick: onReject, danger: true }),
-            React.createElement("div", { style: { height: 1, background: EDS_COLOR.background.disabled, margin: "4px 16px" } }),
+            React.createElement("div", { style: { height: 1, background: EDS_COLOR.background.disabled, margin: "8px 20px" } }),
             React.createElement(Row, { icon: React.createElement(LifeBuoy, { size: 17, color: EDS_COLOR.text.secondary }), label: "\uC9C0\uC6D0 \uBC0F \uACE0\uAC1D\uC13C\uD130", onClick: () => { } }),
             React.createElement(Row, { icon: React.createElement(Globe2, { size: 17, color: EDS_COLOR.text.secondary }), label: "\uC774\uC2F8\uC778\uC628 \uD648\uD398\uC774\uC9C0", onClick: () => { } }))));
 }
@@ -3861,6 +3923,12 @@ function SigningView({ onComplete }) {
     const page1Ref = useRef(null);
     const page2Ref = useRef(null);
     const fieldRefs = useRef({});
+    const pinchStateRef = useRef(null);
+    const zoomRef = useRef(zoom);
+    const suppressDocumentClickRef = useRef(false);
+    useEffect(() => {
+        zoomRef.current = zoom;
+    }, [zoom]);
     useEffect(() => {
         if (isCompact) {
             setLeftCollapsed(false);
@@ -4312,6 +4380,78 @@ function SigningView({ onComplete }) {
     }, [width, isCompact]);
     useEffect(() => {
         const container = docRef.current;
+        if (!container || !isMobile)
+            return undefined;
+        const distance = (touches) => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+        const center = (touches, rect) => ({
+            x: (touches[0].clientX + touches[1].clientX) / 2 - rect.left,
+            y: (touches[0].clientY + touches[1].clientY) / 2 - rect.top,
+        });
+        const onTouchStart = (event) => {
+            if (event.touches.length !== 2)
+                return;
+            event.preventDefault();
+            const rect = container.getBoundingClientRect();
+            const point = center(event.touches, rect);
+            const startZoom = zoomRef.current || fitZoom || 1;
+            suppressDocumentClickRef.current = true;
+            pinchStateRef.current = {
+                startDistance: distance(event.touches),
+                startZoom,
+                focalX: (container.scrollLeft + point.x) / startZoom,
+                focalY: (container.scrollTop + point.y) / startZoom,
+                centerX: point.x,
+                centerY: point.y,
+            };
+        };
+        const onTouchMove = (event) => {
+            const state = pinchStateRef.current;
+            if (!state || event.touches.length !== 2)
+                return;
+            event.preventDefault();
+            const ratio = distance(event.touches) / Math.max(1, state.startDistance);
+            const minZoom = Math.max(0.2, fitZoom || 0.2);
+            const nextZoom = Math.min(2.2, Math.max(minZoom, state.startZoom * ratio));
+            zoomRef.current = nextZoom;
+            setZoom(nextZoom);
+            window.requestAnimationFrame(() => {
+                container.scrollLeft = Math.max(0, state.focalX * nextZoom - state.centerX);
+                container.scrollTop = Math.max(0, state.focalY * nextZoom - state.centerY);
+            });
+        };
+        const finishPinch = () => {
+            if (!pinchStateRef.current)
+                return;
+            pinchStateRef.current = null;
+            window.setTimeout(() => {
+                suppressDocumentClickRef.current = false;
+            }, 320);
+            if (Math.abs(zoomRef.current - fitZoom) < 0.015) {
+                zoomRef.current = fitZoom;
+                setZoom(fitZoom);
+                container.scrollLeft = 0;
+            }
+        };
+        const preventGesture = (event) => event.preventDefault();
+        container.addEventListener("touchstart", onTouchStart, { passive: false });
+        container.addEventListener("touchmove", onTouchMove, { passive: false });
+        container.addEventListener("touchend", finishPinch, { passive: true });
+        container.addEventListener("touchcancel", finishPinch, { passive: true });
+        container.addEventListener("gesturestart", preventGesture, { passive: false });
+        container.addEventListener("gesturechange", preventGesture, { passive: false });
+        container.addEventListener("gestureend", preventGesture, { passive: false });
+        return () => {
+            container.removeEventListener("touchstart", onTouchStart);
+            container.removeEventListener("touchmove", onTouchMove);
+            container.removeEventListener("touchend", finishPinch);
+            container.removeEventListener("touchcancel", finishPinch);
+            container.removeEventListener("gesturestart", preventGesture);
+            container.removeEventListener("gesturechange", preventGesture);
+            container.removeEventListener("gestureend", preventGesture);
+        };
+    }, [isMobile, fitZoom]);
+    useEffect(() => {
+        const container = docRef.current;
         if (!container || isCompact)
             return undefined;
         const onScroll = () => {
@@ -4323,14 +4463,15 @@ function SigningView({ onComplete }) {
         container.addEventListener("scroll", onScroll, { passive: true });
         return () => container.removeEventListener("scroll", onScroll);
     }, [isCompact]);
+    const mobileDocumentZoomed = isMobile && zoom > fitZoom + 0.01;
     const pageSlotStyle = {
-        width: isMobile ? "100%" : PAGE.width * zoom,
+        width: isMobile ? (mobileDocumentZoomed ? PAGE.width * zoom : "100%") : PAGE.width * zoom,
         height: PAGE.height * zoom,
         display: "flex",
-        justifyContent: isMobile ? "center" : "flex-start",
+        justifyContent: isMobile && !mobileDocumentZoomed ? "center" : "flex-start",
         alignItems: "flex-start",
         flexShrink: 0,
-        overflow: isMobile ? "hidden" : "visible",
+        overflow: "visible",
     };
     const pageStyle = {
         width: PAGE.width,
@@ -4434,6 +4575,8 @@ function SigningView({ onComplete }) {
                     React.createElement("div", { style: { pointerEvents: "auto" } }, leftCollapsed ? (React.createElement(CollapsedPanelButton, { side: "left", title: "\uD398\uC774\uC9C0", onClick: () => setLeftCollapsed(false) })) : (React.createElement("div", null))),
                     React.createElement("div", { style: { pointerEvents: "auto" } }, rightCollapsed ? (React.createElement(CollapsedPanelButton, { side: "right", title: "\uC785\uB825\uB780", onClick: () => setRightCollapsed(false) })) : (React.createElement("div", null))))),
                 React.createElement("div", { ref: docRef, onClick: () => {
+                        if (suppressDocumentClickRef.current)
+                            return;
                         if (isCompact) {
                             if (activeField || activeGroup || showSig) {
                                 setActiveField(null);
@@ -4451,12 +4594,19 @@ function SigningView({ onComplete }) {
                     }, style: {
                         flex: 1,
                         overflowY: "auto",
-                        overflowX: isCompact
-                            ? "hidden"
-                            : zoom > fitZoom + 0.01
+                        overflowX: isMobile
+                            ? mobileDocumentZoomed
                                 ? "auto"
-                                : "hidden",
+                                : "hidden"
+                            : isCompact
+                                ? "hidden"
+                                : zoom > fitZoom + 0.01
+                                    ? "auto"
+                                    : "hidden",
                         background: isCompact ? EDS_COLOR.background.surface : EDS_COLOR.background.disabled,
+                        touchAction: isMobile ? "pan-x pan-y" : "auto",
+                        WebkitOverflowScrolling: "touch",
+                        overscrollBehavior: "contain",
                     } },
                     !isCompact && (React.createElement("div", { style: {
                             position: "sticky",
@@ -4504,13 +4654,17 @@ function SigningView({ onComplete }) {
                             flexDirection: "column",
                             alignItems: isMobile ? "stretch" : "center",
                             gap: isCompact ? 0 : 24,
-                            minWidth: !isCompact && zoom > fitZoom + 0.01
-                                ? PAGE.width * zoom + 72
-                                : "auto",
+                            minWidth: mobileDocumentZoomed
+                                ? PAGE.width * zoom
+                                : !isCompact && zoom > fitZoom + 0.01
+                                    ? PAGE.width * zoom + 72
+                                    : "auto",
                         } },
                         React.createElement("div", { style: pageSlotStyle },
                             React.createElement("div", { ref: page1Ref, onClick: (e) => {
                                     e.stopPropagation();
+                                    if (suppressDocumentClickRef.current)
+                                        return;
                                     if (e.target.closest?.("button, input, select, textarea"))
                                         return;
                                     if (isCompact) {
@@ -4704,6 +4858,8 @@ function SigningView({ onComplete }) {
                         React.createElement("div", { style: pageSlotStyle },
                             React.createElement("div", { ref: page2Ref, onClick: (e) => {
                                     e.stopPropagation();
+                                    if (suppressDocumentClickRef.current)
+                                        return;
                                     if (e.target.closest?.("button, input, select, textarea"))
                                         return;
                                     if (isCompact) {
