@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>eSignon Signing Prototype - Mobile UX v53</title>
+  <title>eSignon Signing Prototype - Mobile UX v58</title>
   <style>
     html,body,#root{width:100%;height:100%;margin:0}
     body{overflow:hidden;background:#F2F4F6}
@@ -171,8 +171,8 @@ html,body,#root{margin:0;width:100%;height:100%;overflow:hidden;background:${EDS
 button,input,select,textarea{font:inherit}button{appearance:none}input,select,textarea{outline:none;caret-color:${EDS_COLOR.border.focus}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-@keyframes fieldPulse{0%{box-shadow:0 0 0 0 rgba(0,136,255,0)}18%{box-shadow:0 0 0 2px rgba(0,136,255,.9),0 0 0 10px rgba(0,136,255,.16),0 0 0 22px rgba(0,136,255,.06)}55%{box-shadow:0 0 0 2px rgba(0,136,255,.5),0 0 0 14px rgba(0,136,255,.08),0 0 0 28px rgba(0,136,255,.03)}100%{box-shadow:0 0 0 0 rgba(0,136,255,0)}}
-.anim-fi{animation:fadeIn .16s ease both}.anim-su{animation:slideUp .22s cubic-bezier(.16,1,.3,1) both}.field-pulse{animation:fieldPulse 1.45s cubic-bezier(.25,.8,.25,1) both;z-index:20!important}
+@keyframes fieldPulse{0%,100%{box-shadow:0 0 0 0 rgba(0,136,255,0)}5%{box-shadow:0 0 0 2px rgba(0,136,255,.82),0 0 0 5px rgba(0,136,255,.16)}11%{box-shadow:0 0 0 1px rgba(0,136,255,.18),0 0 0 2px rgba(0,136,255,0)}17%{box-shadow:0 0 0 2px rgba(0,136,255,.76),0 0 0 5px rgba(0,136,255,.14)}23%{box-shadow:0 0 0 1px rgba(0,136,255,.16),0 0 0 2px rgba(0,136,255,0)}29%{box-shadow:0 0 0 2px rgba(0,136,255,.70),0 0 0 5px rgba(0,136,255,.12)}35%{box-shadow:0 0 0 1px rgba(0,136,255,.14),0 0 0 2px rgba(0,136,255,0)}41%{box-shadow:0 0 0 2px rgba(0,136,255,.64),0 0 0 5px rgba(0,136,255,.10)}49%{box-shadow:0 0 0 0 rgba(0,136,255,0)} }
+.anim-fi{animation:fadeIn .16s ease both}.anim-su{animation:slideUp .22s cubic-bezier(.16,1,.3,1) both}.field-pulse{animation:fieldPulse 1.3s ease-out both;z-index:20!important}
 ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${EDS_PALETTE.Gray[300]};border-radius:${RADIUS.scale.circle}}
 .header-icon-btn{width:40px;height:40px;border-radius:${RADIUS.component.button.M.value};background:transparent;border:0;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative}.header-icon-btn:hover{background:${EDS_COLOR.background.disabled}}
 `;
@@ -1034,9 +1034,16 @@ function PhoneAuthModal({ onVerified }) {
                     React.createElement("div", { style: readonlyBox }, "8816"),
                     React.createElement("strong", { style: { color: EDS_PALETTE.Gray[700] } }, "-"),
                     React.createElement("input", { ref: inputRef, value: lastDigits, onFocus: () => setFocused(true), onBlur: () => setFocused(false), onChange: (e) => {
+                            const nextDigits = cleanDigits(e.target.value).slice(0, 4);
                             setError("");
-                            setLastDigits(cleanDigits(e.target.value).slice(0, 4));
-                        }, inputMode: "numeric", placeholder: "0000", "aria-label": "\uD734\uB300\uD3F0 \uBC88\uD638 \uB9C8\uC9C0\uB9C9 4\uC790\uB9AC", style: {
+                            setLastDigits(nextDigits);
+                            if (isMobile && nextDigits.length === 4) {
+                                window.setTimeout(() => {
+                                    inputRef.current?.blur?.();
+                                    window.scrollTo?.({ top: 0, behavior: "smooth" });
+                                }, 0);
+                            }
+                        }, inputMode: "numeric", enterKeyHint: "done", autoComplete: "tel-national", placeholder: "0000", "aria-label": "\uD734\uB300\uD3F0 \uBC88\uD638 \uB9C8\uC9C0\uB9C9 4\uC790\uB9AC", style: {
                             ...authTextField(focused, Boolean(error), isMobile),
                             padding: isMobile ? "0 16px" : "0 14px",
                             fontSize: isMobile ? 18 : 16,
@@ -3023,13 +3030,40 @@ function FieldSheet({ fields, activeId, onClose, onDocumentView, onSave, onSign,
     const field = fields[index];
     const [draft, setDraft] = useState(field?.value ?? "");
     const [attempted, setAttempted] = useState(false);
+    const [birthAccessoryOpen, setBirthAccessoryOpen] = useState(false);
+    const [birthAccessoryTop, setBirthAccessoryTop] = useState(null);
     const inputRef = useRef(null);
+    const birthAccessoryInputRef = useRef(null);
     useEffect(() => {
         setDraft(field?.value ?? "");
         setAttempted(false);
-        const timer = window.setTimeout(() => inputRef.current?.focus?.(), 80);
-        return () => window.clearTimeout(timer);
+        setBirthAccessoryOpen(false);
+        setBirthAccessoryTop(null);
     }, [activeId]);
+    useEffect(() => {
+        if (!birthAccessoryOpen || field?.id !== "rrn")
+            return;
+        const viewport = window.visualViewport;
+        const syncAccessoryPosition = () => {
+            const viewportBottom = viewport
+                ? viewport.offsetTop + viewport.height
+                : window.innerHeight;
+            setBirthAccessoryTop(Math.max(0, viewportBottom - 64));
+        };
+        syncAccessoryPosition();
+        viewport?.addEventListener("resize", syncAccessoryPosition);
+        viewport?.addEventListener("scroll", syncAccessoryPosition);
+        window.addEventListener("resize", syncAccessoryPosition);
+        const focusTimer = window.setTimeout(() => {
+            birthAccessoryInputRef.current?.focus?.({ preventScroll: true });
+        }, 30);
+        return () => {
+            window.clearTimeout(focusTimer);
+            viewport?.removeEventListener("resize", syncAccessoryPosition);
+            viewport?.removeEventListener("scroll", syncAccessoryPosition);
+            window.removeEventListener("resize", syncAccessoryPosition);
+        };
+    }, [birthAccessoryOpen, field?.id]);
     useEffect(() => {
         if (!field)
             return;
@@ -3068,50 +3102,121 @@ function FieldSheet({ fields, activeId, onClose, onDocumentView, onSave, onSign,
         onSave(field.id, draft);
         onClose();
     };
-    const fieldSubtitle = field.type === "dropdown"
-        ? "옵션을 선택해 주세요."
-        : field.type === "checkbox_instant"
-            ? "문서의 강조된 내용을 확인한 후 선택해 주세요."
-            : field.desc || (sequenceMode === "optional" ? "선택 입력란" : "필수 입력란");
     const draftField = { ...field, value: draft };
     const draftHasValue = isFilled(draftField);
     const draftText = typeof draft === "string" ? draft : "";
+    const isInlineTextField = ["text", "tel", "email"].includes(field.type);
+    const canUseInlineAction = field.required
+        ? draftHasValue && valid
+        : !draftHasValue || valid;
+    const isInlineSkip = !field.required && !draftHasValue;
+    const runInlineAction = () => {
+        if (!canUseInlineAction) {
+            setAttempted(true);
+            if (field.id === "rrn" && birthAccessoryOpen)
+                birthAccessoryInputRef.current?.focus?.();
+            else
+                inputRef.current?.focus?.();
+            return;
+        }
+        birthAccessoryInputRef.current?.blur?.();
+        setBirthAccessoryOpen(false);
+        saveAndGo(nextField);
+    };
     return (React.createElement(Overlay, { dim: false, captureBackdrop: false, onClose: closeWithSave, align: "flex-end", zIndex: 250 },
-        React.createElement(Sheet, null,
+        React.createElement(Sheet, { compact: field.id === "rrn" && birthAccessoryOpen },
             React.createElement(BottomSheetHeader, { title: React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 8 } },
                     field.label,
-                    React.createElement(FieldBadge, { required: field.required, completed: isFilled(field) })), subtitle: fieldSubtitle }),
-            React.createElement(BottomSheetBody, { style: { paddingTop: 16 } },
-                ["text", "tel", "email"].includes(field.type) && (React.createElement(React.Fragment, null,
-                    React.createElement("input", { ...getEdsProps("TEXT_FIELD", {
+                    React.createElement(FieldBadge, { required: field.required, completed: isFilled(field) })) }),
+            React.createElement(BottomSheetBody, { style: {
+                    paddingTop: 16,
+                    paddingBottom: isInlineTextField
+                        ? "calc(20px + env(safe-area-inset-bottom))"
+                        : 0,
+                } },
+                isInlineTextField && !(field.id === "rrn" && birthAccessoryOpen) && (React.createElement("div", { style: {
+                        display: "grid",
+                        gridTemplateColumns: "minmax(0, 1fr) 112px",
+                        alignItems: "start",
+                        gap: 8,
+                    } },
+                    React.createElement("div", { style: { minWidth: 0 } },
+                        React.createElement("input", { ...getEdsProps("TEXT_FIELD", {
+                                size: "XL",
+                                category: "DIRECT",
+                                state: valid ? "focus" : "error",
+                            }), ref: inputRef, ...getKeyboardProps(field, nextField ? "next" : "done"), maxLength: field.id === "rrn" ? 8 : undefined, value: String(draft || ""), onFocus: () => {
+                                if (field.id === "rrn")
+                                    setBirthAccessoryOpen(true);
+                            }, onChange: (e) => {
+                                setAttempted(false);
+                                setDraft(field.id === "phone"
+                                    ? formatPhone(e.target.value)
+                                    : e.target.value);
+                            }, onKeyDown: (e) => {
+                                if (e.key !== "Enter")
+                                    return;
+                                e.preventDefault();
+                                runInlineAction();
+                            }, placeholder: "", style: {
+                                width: "100%",
+                                height: 56,
+                                borderRadius: RADIUS.scale.lg,
+                                border: `2px solid ${valid ? EDS_COLOR.border.focus : EDS_COLOR.text.error}`,
+                                outline: "none",
+                                boxShadow: "none",
+                                padding: "0 16px",
+                                fontSize: 16,
+                                color: valid ? EDS_COLOR.text.primary : EDS_COLOR.text.error,
+                            } }),
+                        field.id === "phone" && draft && !validPhone && (React.createElement("p", { style: {
+                                margin: "8px 2px 0",
+                                fontSize: 14,
+                                lineHeight: 1.5,
+                                color: EDS_COLOR.text.error,
+                                fontWeight: 800,
+                            } }, "010-0000-0000 \uD615\uC2DD\uC73C\uB85C \uC785\uB825\uD574\uC8FC\uC138\uC694.")),
+                        field.id === "email" && draft && !validEmail && (React.createElement("p", { style: {
+                                margin: "8px 2px 0",
+                                fontSize: 14,
+                                lineHeight: 1.5,
+                                color: EDS_COLOR.text.error,
+                                fontWeight: 800,
+                            } }, "\uC62C\uBC14\uB978 \uC774\uBA54\uC77C \uD615\uC2DD\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694."))),
+                    React.createElement("button", { ...getEdsProps("BUTTON", {
                             size: "XL",
+                            variant: !canUseInlineAction
+                                ? "disabled"
+                                : isInlineSkip
+                                    ? "secondaryGray"
+                                    : "primary",
                             category: "DIRECT",
-                            state: valid ? "focus" : "error",
-                        }), ref: inputRef, ...getKeyboardProps(field, nextField ? "next" : "done"), value: String(draft || ""), onChange: (e) => setDraft(field.id === "phone"
-                            ? formatPhone(e.target.value)
-                            : e.target.value), placeholder: "", style: {
-                            width: "100%",
+                        }), type: "button", "aria-disabled": !canUseInlineAction, onClick: runInlineAction, style: {
+                            width: 112,
                             height: 56,
                             borderRadius: RADIUS.scale.lg,
-                            border: `2px solid ${valid ? EDS_COLOR.border.focus : EDS_COLOR.text.error}`,
-                            outline: "none",
-                            boxShadow: "none",
-                            padding: "0 16px",
-                            fontSize: 16,
-                            color: valid ? EDS_COLOR.text.primary : EDS_COLOR.text.error,
-                        } }),
-                    field.id === "phone" && draft && !validPhone && (React.createElement("p", { style: {
-                            margin: "8px 2px 0",
-                            fontSize: 14,
-                            color: EDS_COLOR.text.error,
+                            border: "none",
+                            background: !canUseInlineAction
+                                ? EDS_COLOR.background.disabled
+                                : isInlineSkip
+                                    ? EDS_PALETTE.Gray[100]
+                                    : EDS_COLOR.border.focus,
+                            color: !canUseInlineAction
+                                ? EDS_PALETTE.Gray[600]
+                                : isInlineSkip
+                                    ? EDS_PALETTE.Gray[700]
+                                    : EDS_COLOR.background.surface,
+                            fontSize: 15,
+                            lineHeight: 1.3,
                             fontWeight: 800,
-                        } }, "010-0000-0000 \uD615\uC2DD\uC73C\uB85C \uC785\uB825\uD574\uC8FC\uC138\uC694.")),
-                    field.id === "email" && draft && !validEmail && (React.createElement("p", { style: {
-                            margin: "8px 2px 0",
-                            fontSize: 14,
-                            color: EDS_COLOR.text.error,
-                            fontWeight: 800,
-                        } }, "\uC62C\uBC14\uB978 \uC774\uBA54\uC77C \uD615\uC2DD\uC744 \uC785\uB825\uD574\uC8FC\uC138\uC694.")))),
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 4,
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                        } },
+                        isInlineSkip ? "건너뛰기" : "입력하고 다음"))),
                 field.type === "date" && (React.createElement(React.Fragment, null,
                     React.createElement("input", { ref: inputRef, type: "datetime-local", value: draftText.replace(" ", "T"), onChange: (e) => setDraft(e.target.value.replace("T", " ")), style: {
                             position: "absolute",
@@ -3222,7 +3327,58 @@ function FieldSheet({ fields, activeId, onClose, onDocumentView, onSave, onSign,
                     React.createElement(Paperclip, { size: 20 }),
                     draft?.name || "파일 첨부")),
                 attempted && field.required && !draftHasValue && (React.createElement("p", { role: "alert", style: { margin: "12px 2px 0", fontSize: 15, lineHeight: 1.5, color: EDS_COLOR.text.error, fontWeight: 800 } }, "\uD544\uC218 \uB0B4\uC6A9\uC744 \uC785\uB825\uD558\uAC70\uB098 \uC120\uD0DD\uD574 \uC8FC\uC138\uC694."))),
-            React.createElement(BottomSheetNav, { required: field.required, hasValue: draftHasValue && valid, isLast: !nextField, onInvalid: () => setAttempted(true), onNext: () => valid && saveAndGo(nextField) }))));
+            !isInlineTextField && React.createElement(BottomSheetNav, { required: field.required, hasValue: draftHasValue && valid, isLast: !nextField, onInvalid: () => setAttempted(true), onNext: () => valid && saveAndGo(nextField) })),
+        field.id === "rrn" && birthAccessoryOpen && (React.createElement("div", { role: "toolbar", "aria-label": "생년월일 키보드 입력 도구", onPointerDown: (e) => e.stopPropagation(), onTouchStart: (e) => e.stopPropagation(), style: {
+                position: "fixed",
+                left: 0,
+                right: 0,
+                top: birthAccessoryTop == null ? "auto" : birthAccessoryTop,
+                bottom: birthAccessoryTop == null ? 0 : "auto",
+                height: 64,
+                zIndex: 900,
+                padding: "8px 12px",
+                borderTop: `1px solid ${EDS_COLOR.border.default}`,
+                background: EDS_COLOR.background.surface,
+                boxShadow: "0 -8px 24px rgba(25,31,40,.10)",
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1fr) 112px",
+                gap: 8,
+                pointerEvents: "auto",
+            } },
+            React.createElement("input", { ref: birthAccessoryInputRef, ...getKeyboardProps(field, nextField ? "next" : "done"), value: String(draft || ""), maxLength: 8, inputMode: "numeric", placeholder: "생년월일 8자리", onChange: (e) => {
+                    setAttempted(false);
+                    setDraft(cleanDigits(e.target.value).slice(0, 8));
+                }, onKeyDown: (e) => {
+                    if (e.key !== "Enter")
+                        return;
+                    e.preventDefault();
+                    runInlineAction();
+                }, style: {
+                    width: "100%",
+                    height: 48,
+                    borderRadius: RADIUS.scale.lg,
+                    border: `2px solid ${EDS_COLOR.border.focus}`,
+                    outline: "none",
+                    padding: "0 14px",
+                    background: EDS_COLOR.background.surface,
+                    color: EDS_COLOR.text.primary,
+                    fontSize: 17,
+                    fontWeight: 700,
+                    letterSpacing: .5,
+                } }),
+            React.createElement("button", { type: "button", "aria-disabled": !canUseInlineAction, onClick: runInlineAction, style: {
+                    width: 112,
+                    height: 48,
+                    borderRadius: RADIUS.scale.lg,
+                    border: "none",
+                    background: canUseInlineAction ? EDS_COLOR.border.focus : EDS_COLOR.background.disabled,
+                    color: canUseInlineAction ? EDS_COLOR.background.surface : EDS_PALETTE.Gray[600],
+                    fontSize: 14,
+                    lineHeight: 1.25,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                } }, "입력하고 다음")))));
 }
 function GroupSheet({ fields, group, onClose, onDocumentView, onOpenGroup, onSign, onScrollTo, requiredProgress, sequenceMode = "required", onFinish, }) {
     const groupFields = fields.filter((field) => field.group === group);
@@ -3352,7 +3508,7 @@ function GroupSheet({ fields, group, onClose, onDocumentView, onOpenGroup, onSig
         React.createElement(Sheet, null,
             React.createElement(BottomSheetHeader, { title: React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 8 } },
                     group,
-                    React.createElement(FieldBadge, { required: first.required, completed: false })), subtitle: first.groupDesc || "해당하는 항목을 선택해 주세요." }),
+                    React.createElement(FieldBadge, { required: first.required, completed: false })) }),
             React.createElement(BottomSheetBody, { style: { paddingTop: 16 } },
                 React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } }, groupFields.map((field) => {
                     const isChecked = first.type === "radio"
@@ -4273,7 +4429,7 @@ function SigningView({ onComplete }) {
         }
         if (options.pulse) {
             setFlashField(id);
-            window.setTimeout(() => setFlashField((current) => (current === id ? null : current)), 1500);
+            window.setTimeout(() => setFlashField((current) => (current === id ? null : current)), 2250);
         }
         if (callback)
             window.setTimeout(callback, 260);
@@ -4519,7 +4675,7 @@ function SigningView({ onComplete }) {
         } },
         isCompact && activeField && (React.createElement(FieldSheet, { key: activeField, fields: inputUnits, activeId: activeField, sequenceMode: mobileSequenceMode, onClose: (next) => setActiveField(next || null), onDocumentView: () => {
                 setActiveField(null);
-                showMobileNotice("문서에서 입력란을 누르거나 아래 버튼으로 계속 작성할 수 있어요.");
+                
             }, onSave: (id, value) => fieldById[id]?.setter(value), onSign: () => setShowSig(true), onOpenGroup: setActiveGroup, onScrollTo: (id) => scrollToField(id, undefined, { pulse: true }), requiredProgress: { filled: filledReq, total: totalReq }, onFinish: () => setShowComplete(true) })),
         isCompact && activeGroup && (React.createElement(GroupSheet, { key: activeGroup, fields: visibleFields, group: activeGroup, sequenceMode: mobileSequenceMode, onClose: (next) => {
                 setActiveGroup(null);
@@ -4527,7 +4683,6 @@ function SigningView({ onComplete }) {
                     setActiveField(next);
             }, onDocumentView: () => {
                 setActiveGroup(null);
-                showMobileNotice("문서에서 입력란을 누르거나 아래 버튼으로 계속 작성할 수 있어요.");
             }, onOpenGroup: setActiveGroup, onSign: () => setShowSig(true), onScrollTo: (id) => scrollToField(id, undefined, { pulse: true }), requiredProgress: { filled: filledReq, total: totalReq }, onFinish: () => setShowComplete(true) })),
         isMobile && !activeField && !activeGroup && (React.createElement(MobileToast, { message: mobileNotice })),
         showSig && (React.createElement(SigModal, { isCompact: isCompact, requiredProgress: { filled: filledReq, total: totalReq }, onClose: () => setShowSig(false), onSave: (value) => {
@@ -4582,7 +4737,6 @@ function SigningView({ onComplete }) {
                                 setActiveField(null);
                                 setActiveGroup(null);
                                 setShowSig(false);
-                                showMobileNotice("입력창을 닫았습니다. 아래 버튼으로 계속 작성할 수 있어요.");
                             }
                         }
                         else {
@@ -4672,7 +4826,6 @@ function SigningView({ onComplete }) {
                                             setActiveField(null);
                                             setActiveGroup(null);
                                             setShowSig(false);
-                                            showMobileNotice("입력창을 닫았습니다. 아래 버튼으로 계속 작성할 수 있어요.");
                                         }
                                     }
                                     else {
@@ -4867,7 +5020,6 @@ function SigningView({ onComplete }) {
                                             setActiveField(null);
                                             setActiveGroup(null);
                                             setShowSig(false);
-                                            showMobileNotice("입력창을 닫았습니다. 아래 버튼으로 계속 작성할 수 있어요.");
                                         }
                                     }
                                     else {
